@@ -1,0 +1,25 @@
+# Private local state. Never publish these files.
+config.json
+data/
+logs/
+profiles/
+subscriptions/
+*.subscription
+*.nodes
+*.yaml
+*.yml
+.env
+.env.*
+
+# Runtime and package artifacts.
+*.log
+*.bak
+*.tmp
+*.zip
+*.msi
+
+# Editor and operating-system files.
+.vscode/
+.idea/
+Thumbs.db
+Desktop.ini
