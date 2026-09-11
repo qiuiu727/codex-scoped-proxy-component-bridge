@@ -1,11 +1,19 @@
-[CmdletBinding()]
+﻿[CmdletBinding()]
 param(
-    [string]$ConfigPath = (Join-Path $PSScriptRoot 'config.json'),
+    [string]$ConfigPath,
     [switch]$DetectOnly
 )
 
 $ErrorActionPreference = 'Stop'
+
+# $PSScriptRoot is not reliable while PowerShell evaluates parameter defaults.
+# Resolve the default only after the script body begins.
+if ([string]::IsNullOrWhiteSpace($ConfigPath)) {
+    $ConfigPath = Join-Path $PSScriptRoot 'config.json'
+}
+
 Import-Module (Join-Path $PSScriptRoot 'CodexScopedProxyComponents.psm1') -Force
+Write-ComponentBridgeLog 'BRIDGE_STARTED'
 
 function Test-LocalHttpProxy {
     param([Parameter(Mandatory = $true)][Uri]$ProxyUri)
@@ -113,29 +121,31 @@ function Get-UserApproval {
     param([Parameter(Mandatory = $true)][object]$Request)
 
     $message = @"
-$($Request.displayName) requests access to the local proxy when Codex is started.
+当 Codex 启动时，$($Request.displayName) 请求使用本地代理。
 
-Program: $($Request.executablePath)
-Arguments: $($Request.arguments)
-SHA-256: $($Request.sha256)
+程序：$($Request.executablePath)
+启动参数：$($Request.arguments)
+文件 SHA-256：$($Request.sha256)
 
-Approval gives this exact file network routing through the local proxy only. It does not provide Codex cookies, login tokens, or account data.
+同意后，只有这个路径与校验值一致的文件会在桥接启动时使用本地代理。不会提供 Codex Cookie、登录令牌或账号数据。
 
-Approve this component?
+是否同意此组件连接？
 "@
     try {
         Add-Type -AssemblyName System.Windows.Forms -ErrorAction Stop
+        Write-ComponentBridgeLog "APPROVAL_PROMPT_OPEN id=$($Request.id) name=$($Request.displayName)"
         $result = [System.Windows.Forms.MessageBox]::Show(
             $message,
-            'Codex Scoped Proxy Component Bridge',
+            'Codex 专用代理组件桥接',
             [System.Windows.Forms.MessageBoxButtons]::YesNo,
             [System.Windows.Forms.MessageBoxIcon]::Warning,
             [System.Windows.Forms.MessageBoxDefaultButton]::Button2
         )
+        Write-ComponentBridgeLog "APPROVAL_PROMPT_RESULT id=$($Request.id) result=$result"
         return ($result -eq [System.Windows.Forms.DialogResult]::Yes)
     }
     catch {
-        Write-ComponentBridgeLog 'APPROVAL_DEFERRED Windows Forms prompt unavailable'
+        Write-ComponentBridgeLog "APPROVAL_DEFERRED error=$($_.Exception.Message)"
         return $null
     }
 }
@@ -166,8 +176,13 @@ function Process-PendingComponentRequests {
                 sha256 = $request.sha256
                 approvedAt = (Get-Date).ToUniversalTime().ToString('o')
             }
-            $approved.components = @($approved.components) + @($component)
-            Write-ComponentBridgeLog "APPROVED id=$($request.id) name=$($request.displayName)"
+            $approved.components = @($approved.components | Where-Object { -not [string]::Equals($_.executablePath, $request.executablePath, [System.StringComparison]::OrdinalIgnoreCase) }) + @($component)
+            if ($request.isUpdate) {
+                Write-ComponentBridgeLog "REAPPROVED id=$($request.id) name=$($request.displayName)"
+            }
+            else {
+                Write-ComponentBridgeLog "APPROVED id=$($request.id) name=$($request.displayName)"
+            }
         }
         elseif ($null -eq $approval) {
             $remaining += @($request)

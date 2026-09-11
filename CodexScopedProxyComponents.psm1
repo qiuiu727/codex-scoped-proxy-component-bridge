@@ -81,7 +81,15 @@ function Write-BridgeDocument {
     $json = $Document | ConvertTo-Json -Depth 8
     [System.IO.File]::WriteAllText($temporaryPath, $json + [Environment]::NewLine, (New-Object System.Text.UTF8Encoding($false)))
     if (Test-Path -LiteralPath $Path -PathType Leaf) {
-        [System.IO.File]::Replace($temporaryPath, $Path, $null, $true)
+        $backupPath = "$Path.replace-backup"
+        try {
+            [System.IO.File]::Replace($temporaryPath, $Path, $backupPath, $true)
+        }
+        finally {
+            if (Test-Path -LiteralPath $backupPath -PathType Leaf) {
+                Remove-Item -LiteralPath $backupPath -Force -ErrorAction SilentlyContinue
+            }
+        }
     }
     else {
         [System.IO.File]::Move($temporaryPath, $Path)

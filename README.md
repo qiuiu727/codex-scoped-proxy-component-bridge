@@ -7,8 +7,8 @@ It is independent from the first-generation launcher. It does not include a prox
 ## Security model
 
 1. A companion tool calls `Request-CodexScopedProxyComponent.ps1` with its executable path and optional arguments.
-2. The bridge records only a **pending request**. Pending requests cannot start and receive no proxy settings.
-3. At the next bridge launch, Windows shows the exact executable path, arguments, and SHA-256 hash. You must click **Yes** to approve it.
+2. It can request an immediate Windows **Yes/No** approval dialog. If Windows cannot show the dialog, the bridge records only a **pending request**. Pending requests cannot start and receive no proxy settings.
+3. A pending request is shown at the next bridge launch with its exact executable path, arguments, and SHA-256 hash. You must click **Yes** to approve it.
 4. Only approved files whose SHA-256 still matches are launched. They receive only `HTTP_PROXY`, `HTTPS_PROXY`, and `NO_PROXY` environment variables for a loopback HTTP proxy.
 5. Codex cookies, ChatGPT login tokens, and account/session files are never read, copied, or passed to a component.
 
@@ -47,6 +47,12 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Request-CodexScopedPro
 ```
 
 Launch the bridge afterward. The consent dialog appears **before** the requested component can receive the proxy environment or start.
+
+To ask for approval immediately instead of waiting for the next bridge launch, add `-PromptNow`. This still does not start or alter any running program:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Request-CodexScopedProxyComponent.ps1 -ExecutablePath .\your-component.exe -DisplayName 'Example companion' -PromptNow
+```
 
 ## Review or remove approval
 

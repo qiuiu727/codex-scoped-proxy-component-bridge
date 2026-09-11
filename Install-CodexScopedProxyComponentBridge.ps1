@@ -1,11 +1,19 @@
 [CmdletBinding()]
-param([switch]$LaunchAfterInstall)
+param(
+    [switch]$LaunchAfterInstall,
+    [string]$InstallRoot,
+    [string]$MigrateFromRoot
+)
 
 $ErrorActionPreference = 'Stop'
-$installRoot = Join-Path $env:LOCALAPPDATA 'CodexScopedProxyComponentBridge'
+if ([string]::IsNullOrWhiteSpace($InstallRoot)) {
+    $InstallRoot = Join-Path $env:LOCALAPPDATA 'CodexScopedProxyComponentBridge'
+}
+$installRoot = [System.IO.Path]::GetFullPath($InstallRoot)
 $sourceRoot = $PSScriptRoot
 $filesToInstall = @(
     'CodexScopedProxyComponents.psm1',
+    'Run-CodexScopedProxyComponentBridge.vbs',
     'Start-CodexWithApprovedComponents.ps1',
     'Start-ApprovedCodexScopedProxyComponents.ps1',
     'Request-CodexScopedProxyComponent.ps1',
@@ -22,6 +30,21 @@ foreach ($file in $filesToInstall) {
 New-Item -ItemType Directory -Path $installRoot -Force | Out-Null
 foreach ($file in $filesToInstall) {
     Copy-Item -LiteralPath (Join-Path $sourceRoot $file) -Destination (Join-Path $installRoot $file) -Force
+}
+
+if (-not [string]::IsNullOrWhiteSpace($MigrateFromRoot)) {
+    $migrationRoot = [System.IO.Path]::GetFullPath($MigrateFromRoot)
+    if (-not [string]::Equals($migrationRoot, $installRoot, [System.StringComparison]::OrdinalIgnoreCase)) {
+        foreach ($relativePath in @('config.json', 'data\pending-component-requests.json', 'data\approved-components.json')) {
+            $oldPath = Join-Path $migrationRoot $relativePath
+            $newPath = Join-Path $installRoot $relativePath
+            if ((Test-Path -LiteralPath $oldPath -PathType Leaf) -and -not (Test-Path -LiteralPath $newPath -PathType Leaf)) {
+                $newParent = Split-Path -Parent $newPath
+                New-Item -ItemType Directory -Path $newParent -Force | Out-Null
+                Copy-Item -LiteralPath $oldPath -Destination $newPath -Force
+            }
+        }
+    }
 }
 
 & (Join-Path $installRoot 'Start-CodexWithApprovedComponents.ps1') -DetectOnly
