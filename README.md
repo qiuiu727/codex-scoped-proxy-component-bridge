@@ -16,7 +16,7 @@ Clicking **No** discards that request. An executable changed after it requests a
 
 ## Requirements
 
-- Windows PowerShell 5.1 or later on Windows.
+- PowerShell 7 or later on Windows.
 - Microsoft Store Codex installed and signed in.
 - A local HTTP proxy core already running and able to handle HTTPS `CONNECT` requests.
 
@@ -27,23 +27,33 @@ The proxy must be bound to a loopback address. The bridge does not alter Windows
 Start your own proxy core, then run from this directory:
 
 ```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Install-CodexScopedProxyComponentBridge.ps1
+pwsh -NoProfile -ExecutionPolicy Bypass -File .\Install-CodexScopedProxyComponentBridge.ps1
 ```
 
 The installer creates a Start Menu shortcut named **Codex Scoped Proxy Component Bridge**. Pin that shortcut to the taskbar if wanted. It uses the Codex icon and, when Codex is already open, focuses that window instead of restarting it.
+
+## Update maintenance
+
+The normal launcher runs `Update-CodexCockpitScopedProxyBridge.ps1` before starting Codex. It rediscovers the current Microsoft Store Codex package after an update. If an approved companion application updates, the bridge asks for a fresh Yes/No approval for its new SHA-256 hash; it never silently trusts a changed executable.
+
+Run the maintenance-aware launcher directly with:
+
+```powershell
+pwsh -NoProfile -ExecutionPolicy Bypass -File .\Start-CodexBridgeWithMaintenance.ps1
+```
 
 ## Request a component
 
 After installation, run the installed request script. A request is not an approval and does not start the tool.
 
 ```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Request-CodexScopedProxyComponent.ps1 -ExecutablePath .\your-component.exe -DisplayName 'Example companion'
+pwsh -NoProfile -ExecutionPolicy Bypass -File .\Request-CodexScopedProxyComponent.ps1 -ExecutablePath .\your-component.exe -DisplayName 'Example companion'
 ```
 
 Optional command-line arguments are stored exactly as shown in the approval dialog:
 
 ```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Request-CodexScopedProxyComponent.ps1 -ExecutablePath .\your-component.exe -Arguments '--background' -DisplayName 'Example companion'
+pwsh -NoProfile -ExecutionPolicy Bypass -File .\Request-CodexScopedProxyComponent.ps1 -ExecutablePath .\your-component.exe -Arguments '--background' -DisplayName 'Example companion'
 ```
 
 Launch the bridge afterward. The consent dialog appears **before** the requested component can receive the proxy environment or start.
@@ -51,7 +61,7 @@ Launch the bridge afterward. The consent dialog appears **before** the requested
 To ask for approval immediately instead of waiting for the next bridge launch, add `-PromptNow`. This still does not start or alter any running program:
 
 ```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Request-CodexScopedProxyComponent.ps1 -ExecutablePath .\your-component.exe -DisplayName 'Example companion' -PromptNow
+pwsh -NoProfile -ExecutionPolicy Bypass -File .\Request-CodexScopedProxyComponent.ps1 -ExecutablePath .\your-component.exe -DisplayName 'Example companion' -PromptNow
 ```
 
 ## Review or remove approval
@@ -59,13 +69,13 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Request-CodexScopedPro
 List approved components:
 
 ```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Manage-CodexScopedProxyComponents.ps1 -List
+pwsh -NoProfile -ExecutionPolicy Bypass -File .\Manage-CodexScopedProxyComponents.ps1 -List
 ```
 
 Remove a component by its listed `id`; removal requires typing `REMOVE`:
 
 ```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Manage-CodexScopedProxyComponents.ps1 -Remove -ComponentId '<ID>'
+pwsh -NoProfile -ExecutionPolicy Bypass -File .\Manage-CodexScopedProxyComponents.ps1 -Remove -ComponentId '<ID>'
 ```
 
 ## Limits
@@ -77,7 +87,7 @@ This bridge can supply the same local proxy route to a separate process. It cann
 Run the installed uninstaller:
 
 ```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$env:LOCALAPPDATA\CodexScopedProxyComponentBridge\Uninstall-CodexScopedProxyComponentBridge.ps1"
+pwsh -NoProfile -ExecutionPolicy Bypass -File "$env:LOCALAPPDATA\CodexScopedProxyComponentBridge\Uninstall-CodexScopedProxyComponentBridge.ps1"
 ```
 
 It removes only the bridge, its Start Menu shortcut, logs, and local approval records. It does not remove Codex, a proxy core, subscriptions, TUN, or system-proxy settings.

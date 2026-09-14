@@ -19,7 +19,10 @@ $filesToInstall = @(
     'Request-CodexScopedProxyComponent.ps1',
     'Manage-CodexScopedProxyComponents.ps1',
     'New-CodexScopedProxyComponentBridgeShortcut.ps1',
-    'Uninstall-CodexScopedProxyComponentBridge.ps1'
+    'Uninstall-CodexScopedProxyComponentBridge.ps1',
+    'Update-CodexCockpitScopedProxyBridge.ps1',
+    'Start-CodexBridgeWithMaintenance.ps1',
+    'Run-CodexBridgeWithMaintenance.vbs'
 )
 
 foreach ($file in $filesToInstall) {
@@ -58,5 +61,6 @@ if (-not $?) {
 Write-Output 'The bridge was installed. Pending components will require approval before they are started.'
 
 if ($LaunchAfterInstall) {
-    Start-Process -FilePath (Join-Path $env:WINDIR 'System32\WindowsPowerShell\v1.0\powershell.exe') -ArgumentList @('-NoLogo', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-WindowStyle', 'Hidden', '-File', (Join-Path $installRoot 'Start-CodexWithApprovedComponents.ps1')) -WindowStyle Hidden
+    $pwsh = (Get-Command pwsh -ErrorAction Stop).Source
+    Start-Process -FilePath $pwsh -ArgumentList @('-NoLogo', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', (Join-Path $installRoot 'Start-CodexBridgeWithMaintenance.ps1')) -WindowStyle Hidden
 }

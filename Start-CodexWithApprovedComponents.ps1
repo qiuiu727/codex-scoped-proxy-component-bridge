@@ -241,8 +241,11 @@ try {
     }
 
     Process-PendingComponentRequests
+    # Start approved companion components only after the local HTTP proxy has
+    # passed the CONNECT check.  Cockpit Tools is an approved component, so
+    # this gives it the scoped proxy environment before Codex is launched.
+    Start-ApprovedComponents -ProxyUri $proxyUri
     if (Show-ExistingCodexWindow) {
-        Start-ApprovedComponents -ProxyUri $proxyUri
         Write-ComponentBridgeLog 'FOCUSED existing Codex window'
         exit 0
     }
@@ -264,8 +267,6 @@ try {
     $startInfo.Arguments = "--proxy-server=$($proxyUri.Host):$($proxyUri.Port) --proxy-bypass-list=<local>"
     Set-ScopedProxyEnvironment -StartInfo $startInfo -ProxyUri $proxyUri
     $process = [System.Diagnostics.Process]::Start($startInfo)
-    Start-Sleep -Milliseconds 750
-    Start-ApprovedComponents -ProxyUri $proxyUri
     Write-ComponentBridgeLog "STARTED Codex pid=$($process.Id)"
 }
 catch {
