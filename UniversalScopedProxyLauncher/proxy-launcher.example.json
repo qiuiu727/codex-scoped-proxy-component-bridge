@@ -1,0 +1,19 @@
+{
+  "ProxyUrl": "http://127.0.0.1:7890",
+  "Targets": [
+    {
+      "Name": "Codex Desktop (Microsoft Store)",
+      "Kind": "codexStore",
+      "Path": "",
+      "Arguments": "",
+      "WorkingDirectory": ""
+    },
+    {
+      "Name": "Example quota floating window",
+      "Kind": "file",
+      "Path": "C:\\path\\to\\your-widget.exe",
+      "Arguments": "",
+      "WorkingDirectory": ""
+    }
+  ]
+}
