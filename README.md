@@ -2,6 +2,15 @@
 
 A standalone second-generation launcher for Microsoft Store Codex on Windows. It starts Codex through an already-running local HTTP proxy and provides a consent gate for companion tools that need the same **network route**.
 
+## Choose the correct installer
+
+| Download | Who it is for | Cockpit support |
+| --- | --- | --- |
+| **Scoped Proxy Launcher** (`universal-v1.1.0`) | Most people with one ChatGPT/Codex account who want Codex and optional balance/quota helpers to use an existing loopback HTTP proxy. | No. It deliberately does not change, start, or configure Cockpit. |
+| **Codex Proxy Bridge Personal** (`cockpit-v1.2.7`) | People who actively use Cockpit account switching and need switches to start Codex through the scoped proxy. | Yes. It has an opt-in Cockpit direct hook, keeps the ordered Clash-to-Cockpit-to-Codex login chain, and includes the same tray controls. |
+
+Both installers require the official ChatGPT/Codex desktop client and an already-running local HTTP proxy. Neither installer includes proxy nodes, subscriptions, credentials, system-proxy changes, or TUN mode.
+
 ## Universal installer for single-account users
 
 [`UniversalScopedProxyLauncher`](UniversalScopedProxyLauncher) is the standalone installer version for people who simply need to start the official ChatGPT/Codex desktop application and a quota/balance floating window through their own local HTTP proxy. It deliberately excludes Cockpit account switching, Cockpit proxy hooks, and Cockpit window-pinning behavior. It does not replace ChatGPT/Codex: the official desktop client remains required.

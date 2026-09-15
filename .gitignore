@@ -17,6 +17,7 @@ subscriptions/
 *.tmp
 *.zip
 *.msi
+**/dist/
 
 # Editor and operating-system files.
 .vscode/
