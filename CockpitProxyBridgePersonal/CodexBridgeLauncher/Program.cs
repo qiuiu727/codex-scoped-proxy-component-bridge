@@ -39,6 +39,9 @@ internal static class Program
     [DllImport("user32.dll")]
     private static extern bool SetForegroundWindow(IntPtr handle);
 
+    [DllImport("user32.dll")]
+    private static extern bool IsWindowVisible(IntPtr handle);
+
     [STAThread]
     private static int Main(string[] args)
     {
@@ -123,15 +126,15 @@ internal static class Program
                         || executableName.IndexOf("Restart", StringComparison.OrdinalIgnoreCase) >= 0
                         || executableName.IndexOf("重启", StringComparison.OrdinalIgnoreCase) >= 0;
                     var existing = FindRunningStoreCodex();
-                    if (existing != null && existing.MainWindowHandle == IntPtr.Zero && !restartCodex)
+                    if (existing != null && !HasUsableMainWindow(existing) && !restartCodex)
                     {
                         var deadline = DateTime.UtcNow.AddSeconds(10);
-                        while (DateTime.UtcNow < deadline && existing != null && existing.MainWindowHandle == IntPtr.Zero)
+                        while (DateTime.UtcNow < deadline && existing != null && !HasUsableMainWindow(existing))
                         {
                             Thread.Sleep(500);
                             existing = FindRunningStoreCodex();
                         }
-                        if (existing != null && existing.MainWindowHandle == IntPtr.Zero)
+                        if (existing != null && !HasUsableMainWindow(existing))
                             restartCodex = true;
                     }
                     if (restartCodex && existing != null)
@@ -711,7 +714,7 @@ internal static class Program
 
     private static Process FindRunningStoreCodex()
     {
-        return GetStoreCodexRoots().OrderByDescending(p => p.MainWindowHandle != IntPtr.Zero).FirstOrDefault();
+        return GetStoreCodexRoots().OrderByDescending(HasUsableMainWindow).FirstOrDefault();
     }
 
     private static Process[] GetStoreCodexRoots()
@@ -816,6 +819,16 @@ internal static class Program
         }
     }
 
+    private static bool HasUsableMainWindow(Process process)
+    {
+        try
+        {
+            process.Refresh();
+            return process.MainWindowHandle != IntPtr.Zero && IsWindowVisible(process.MainWindowHandle);
+        }
+        catch { return false; }
+    }
+
     private static ProcessStartInfo CreateProxiedStartInfo(string path, string arguments, Uri proxyUri)
     {
         var proxy = proxyUri.GetLeftPart(UriPartial.Authority);
@@ -871,11 +884,11 @@ internal static class Program
         while (DateTime.UtcNow < deadline)
         {
             var root = FindRunningStoreCodex();
-            if (root != null && root.MainWindowHandle != IntPtr.Zero)
+            if (root != null && HasUsableMainWindow(root))
             {
                 Thread.Sleep(1000);
                 root.Refresh();
-                if (!root.HasExited && root.MainWindowHandle != IntPtr.Zero)
+                if (!root.HasExited && HasUsableMainWindow(root))
                 {
                     FocusProcess(root);
                     if (File.Exists(Path.Combine(baseDirectory, "taskbar-grouping.enabled")))
