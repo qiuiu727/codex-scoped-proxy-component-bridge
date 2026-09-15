@@ -11,12 +11,14 @@ internal sealed class TrayHost : ApplicationContext
     private readonly NotifyIcon icon;
     private readonly Timer updateTimer;
     private readonly System.Threading.Mutex mutex;
+    internal bool IsPrimary { get; private set; }
     internal TrayHost(string baseDirectory)
     {
         this.baseDirectory = baseDirectory;
         bool created;
         mutex = new System.Threading.Mutex(true, @"Local\ScopedProxyLauncherTray", out created);
-        if (!created) { ExitThread(); return; }
+        IsPrimary = created;
+        if (!created) return;
         var config = Program.LoadConfig(baseDirectory);
         bool chinese = string.Equals(config.Language, "zh-CN", StringComparison.OrdinalIgnoreCase);
         var menu = new ContextMenuStrip();
@@ -51,7 +53,7 @@ internal sealed class TrayHost : ApplicationContext
     }
     private void CheckUpdates() { try { Program.CheckForUpdatedTargets(Program.LoadConfig(baseDirectory), baseDirectory, true); } catch (Exception error) { MessageBox.Show(error.Message); } }
     private void CheckUpdatesSilent() { try { Program.CheckForUpdatedTargets(Program.LoadConfig(baseDirectory), baseDirectory, false); } catch { } }
-    protected override void ExitThreadCore() { updateTimer.Dispose(); icon.Visible = false; icon.Dispose(); try { mutex.ReleaseMutex(); } catch { } mutex.Dispose(); base.ExitThreadCore(); }
+    protected override void ExitThreadCore() { if (updateTimer != null) updateTimer.Dispose(); if (icon != null) { icon.Visible = false; icon.Dispose(); } if (mutex != null) { try { mutex.ReleaseMutex(); } catch { } mutex.Dispose(); } base.ExitThreadCore(); }
 }
 
 internal static class AutostartTask

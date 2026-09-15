@@ -9,13 +9,15 @@ internal sealed class BridgeTrayHost : ApplicationContext
     private readonly string baseDirectory;
     private readonly NotifyIcon icon;
     private readonly System.Threading.Mutex mutex;
+    internal bool IsPrimary { get; private set; }
 
     internal BridgeTrayHost(string directory)
     {
         baseDirectory = directory;
         bool created;
         mutex = new System.Threading.Mutex(true, @"Local\CodexProxyBridgeTray", out created);
-        if (!created) { ExitThread(); return; }
+        IsPrimary = created;
+        if (!created) return;
         bool chinese = string.Equals(Program.LoadLauncherSettings(baseDirectory).Language, "zh-CN", StringComparison.OrdinalIgnoreCase);
         var menu = new ContextMenuStrip();
         menu.Items.Add(chinese ? "打开设置" : "Open settings", null, delegate { OpenSettings(); });
@@ -59,10 +61,8 @@ internal sealed class BridgeTrayHost : ApplicationContext
 
     protected override void ExitThreadCore()
     {
-        icon.Visible = false;
-        icon.Dispose();
-        try { mutex.ReleaseMutex(); } catch { }
-        mutex.Dispose();
+        if (icon != null) { icon.Visible = false; icon.Dispose(); }
+        if (mutex != null) { try { mutex.ReleaseMutex(); } catch { } mutex.Dispose(); }
         base.ExitThreadCore();
     }
 }

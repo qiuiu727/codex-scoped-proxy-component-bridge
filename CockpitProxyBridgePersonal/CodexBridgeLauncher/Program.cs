@@ -51,7 +51,7 @@ internal static class Program
         {
             if (HasArgument(args, "--tray"))
             {
-                Application.Run(new BridgeTrayHost(baseDirectory));
+                RunTray(baseDirectory);
                 return 0;
             }
             if (HasArgument(args, "--check-updates"))
@@ -89,7 +89,7 @@ internal static class Program
                         OrderedStartupTask.SetEnabled(form.Settings.AutoStartEnabled);
                     }
                 }
-                Application.Run(new BridgeTrayHost(baseDirectory));
+                RunTray(baseDirectory);
                 return 0;
             }
 
@@ -231,6 +231,12 @@ internal static class Program
     {
         var executable = Path.Combine(baseDirectory, "CodexBridgeLauncher.exe");
         if (File.Exists(executable)) Process.Start(new ProcessStartInfo(executable, "--tray") { UseShellExecute = false, WorkingDirectory = baseDirectory });
+    }
+
+    private static void RunTray(string baseDirectory)
+    {
+        var tray = new BridgeTrayHost(baseDirectory);
+        if (tray.IsPrimary) Application.Run(tray);
     }
 
     private static string Text(LauncherSettings settings, string english, string chinese)

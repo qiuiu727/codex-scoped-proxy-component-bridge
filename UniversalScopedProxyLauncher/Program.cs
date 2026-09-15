@@ -27,7 +27,7 @@ internal static class Program
             var config = LoadConfig(baseDirectory);
             if (HasArgument(args, "--tray"))
             {
-                Application.Run(new TrayHost(baseDirectory));
+                RunTray(baseDirectory);
                 return 0;
             }
             if (HasArgument(args, "--autostart"))
@@ -65,7 +65,7 @@ internal static class Program
                         TaskbarPin.Apply(baseDirectory, form.Config);
                     }
                 }
-                Application.Run(new TrayHost(baseDirectory));
+                RunTray(baseDirectory);
                 return 0;
             }
             if (HasArgument(args, "--validate"))
@@ -143,6 +143,12 @@ internal static class Program
     {
         string launcher = Process.GetCurrentProcess().MainModule.FileName;
         if (File.Exists(launcher)) Process.Start(new ProcessStartInfo(launcher, "--tray") { UseShellExecute = false, WorkingDirectory = baseDirectory });
+    }
+
+    private static void RunTray(string baseDirectory)
+    {
+        var tray = new TrayHost(baseDirectory);
+        if (tray.IsPrimary) Application.Run(tray);
     }
 
     private static void StopStoreCodex()
