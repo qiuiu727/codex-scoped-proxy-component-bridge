@@ -6,7 +6,7 @@ A standalone second-generation launcher for Microsoft Store Codex on Windows. It
 
 [`UniversalScopedProxyLauncher`](UniversalScopedProxyLauncher) is the standalone installer version for people who simply need to start the official ChatGPT/Codex desktop application and a quota/balance floating window through their own local HTTP proxy. It deliberately excludes Cockpit account switching, Cockpit proxy hooks, and Cockpit window-pinning behavior. It does not replace ChatGPT/Codex: the official desktop client remains required.
 
-Download `ScopedProxyLauncher-Setup.exe` from the corresponding GitHub Release. The installer asks for a program installation folder, and then asks whether to create a desktop shortcut; Start-menu launch and configuration entries are always installed.
+Download `ScopedProxyLauncher-Setup.exe` from the corresponding GitHub Release. The installer asks for a program installation folder, then asks whether to create a desktop shortcut. It includes a notification-area tray helper with settings, ordered opt-in Clash-to-Codex autostart, reversible taskbar replacement, and manual file-update approval for configured extensions.
 
 It is independent from the first-generation launcher. It does not include a proxy core, Clash/Mihomo configuration, subscription, node, account credential, or Codex session data.
 

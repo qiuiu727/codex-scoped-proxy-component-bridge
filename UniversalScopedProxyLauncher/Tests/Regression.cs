@@ -21,6 +21,10 @@ internal static class Regression
             Assert(info.EnvironmentVariables["HTTPS_PROXY"] == "http://127.0.0.1:7890", "HTTPS proxy environment");
             Assert(info.EnvironmentVariables["NO_PROXY"].Contains("127.0.0.1"), "local bypass");
             Assert(info.EnvironmentVariables["ELECTRON_RUN_AS_NODE"] == null, "Electron isolation");
+            string hash = (string)program.GetMethod("ComputeFileHash", BindingFlags.NonPublic | BindingFlags.Static).Invoke(null, new object[] { targetType.GetProperty("Path").GetValue(target, null) });
+            targetType.GetProperty("ApprovedHash").SetValue(target, hash, null);
+            program.GetMethod("ValidateTargetApproval", BindingFlags.NonPublic | BindingFlags.Static).Invoke(null, new object[] { target });
+            Assert(hash.Length == 64, "update approval hash");
             Console.WriteLine("PASS: direct target launch, scoped proxy environment, local bypass, Electron isolation.");
             return 0;
         }

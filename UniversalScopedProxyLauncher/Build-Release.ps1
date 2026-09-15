@@ -9,7 +9,7 @@ New-Item -ItemType Directory -Path $output -Force | Out-Null
 $launcher = Join-Path $output 'ScopedProxyLauncher.exe'
 $setup = Join-Path $output 'ScopedProxyLauncher-Setup.exe'
 $test = Join-Path $output 'Regression.exe'
-& $compiler /nologo /target:winexe /platform:x64 /optimize+ "/out:$launcher" /reference:System.Windows.Forms.dll /reference:System.Web.Extensions.dll /reference:Microsoft.CSharp.dll (Join-Path $PSScriptRoot 'Program.cs')
+& $compiler /nologo /target:winexe /platform:x64 /optimize+ "/out:$launcher" /reference:System.Windows.Forms.dll /reference:System.Web.Extensions.dll /reference:Microsoft.CSharp.dll (Join-Path $PSScriptRoot 'Program.cs') (Join-Path $PSScriptRoot 'TrayRuntime.cs')
 if ($LASTEXITCODE -ne 0) { throw 'Launcher compilation failed.' }
 & $compiler /nologo /target:winexe /platform:x64 /optimize+ "/out:$setup" /reference:System.Windows.Forms.dll /reference:System.Drawing.dll /reference:Microsoft.CSharp.dll "/resource:$launcher,ScopedProxyLauncher.exe" (Join-Path $PSScriptRoot 'Setup.cs')
 if ($LASTEXITCODE -ne 0) { throw 'Installer compilation failed.' }
