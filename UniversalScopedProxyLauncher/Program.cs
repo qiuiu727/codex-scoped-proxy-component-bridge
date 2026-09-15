@@ -53,6 +53,21 @@ internal static class Program
                 }
                 return 0;
             }
+            if (!config.Configured)
+            {
+                using (var form = new ConfigureForm(config, baseDirectory))
+                {
+                    if (form.ShowDialog() == DialogResult.OK)
+                    {
+                        form.Config.Configured = true;
+                        SaveConfig(baseDirectory, form.Config);
+                        AutostartTask.Sync(baseDirectory, form.Config);
+                        TaskbarPin.Apply(baseDirectory, form.Config);
+                    }
+                }
+                Application.Run(new TrayHost(baseDirectory));
+                return 0;
+            }
             if (HasArgument(args, "--validate"))
             {
                 ValidateProxy(config.ProxyUrl);
@@ -66,15 +81,9 @@ internal static class Program
                 Launch(config, target);
                 return 0;
             }
-            if (!HasArgument(args, "--launch"))
-            {
-                Application.Run(new TrayHost(baseDirectory));
-                return 0;
-            }
-            using (var form = new LaunchForm(config, baseDirectory))
-            {
-                if (form.ShowDialog() == DialogResult.OK && form.SelectedTarget != null) Launch(config, form.SelectedTarget);
-            }
+            if (HasArgument(args, "--restart-codex")) StopStoreCodex();
+            foreach (var target in config.Targets) Launch(config, target);
+            EnsureTrayHost(baseDirectory);
             return 0;
         }
         catch (Exception error)
@@ -89,11 +98,12 @@ internal static class Program
         string path = Path.Combine(baseDirectory, ConfigFileName);
         if (!File.Exists(path))
         {
-            return new LauncherConfig { ProxyUrl = "http://127.0.0.1:7890", Targets = DiscoverDefaultTargets() };
+            return new LauncherConfig { ProxyUrl = "http://127.0.0.1:7890", Targets = DiscoverDefaultTargets(), Language = System.Globalization.CultureInfo.CurrentUICulture.Name.StartsWith("zh", StringComparison.OrdinalIgnoreCase) ? "zh-CN" : "en-US" };
         }
         var config = new JavaScriptSerializer().Deserialize<LauncherConfig>(File.ReadAllText(path));
         if (config == null) throw new InvalidOperationException("Configuration could not be read.");
         if (config.Targets == null) config.Targets = new List<LaunchTarget>();
+        if (string.IsNullOrWhiteSpace(config.Language)) config.Language = System.Globalization.CultureInfo.CurrentUICulture.Name.StartsWith("zh", StringComparison.OrdinalIgnoreCase) ? "zh-CN" : "en-US";
         return config;
     }
 
@@ -104,6 +114,11 @@ internal static class Program
         File.WriteAllText(temporary, serializer.Serialize(config), new UTF8Encoding(false));
         File.Copy(temporary, Path.Combine(baseDirectory, ConfigFileName), true);
         File.Delete(temporary);
+    }
+
+    internal static string Text(LauncherConfig config, string english, string chinese)
+    {
+        return string.Equals(config.Language, "zh-CN", StringComparison.OrdinalIgnoreCase) ? chinese : english;
     }
 
     private static List<LaunchTarget> DiscoverDefaultTargets()
@@ -122,6 +137,25 @@ internal static class Program
         ValidateTargetApproval(target);
         ProcessStartInfo start = CreateStartInfo(target, proxy);
         Process.Start(start);
+    }
+
+    private static void EnsureTrayHost(string baseDirectory)
+    {
+        string launcher = Process.GetCurrentProcess().MainModule.FileName;
+        if (File.Exists(launcher)) Process.Start(new ProcessStartInfo(launcher, "--tray") { UseShellExecute = false, WorkingDirectory = baseDirectory });
+    }
+
+    private static void StopStoreCodex()
+    {
+        foreach (var process in Process.GetProcessesByName("ChatGPT"))
+        {
+            try
+            {
+                if (process.MainModule.FileName.IndexOf("\\WindowsApps\\OpenAI.Codex_", StringComparison.OrdinalIgnoreCase) < 0) continue;
+                process.Kill(); process.WaitForExit(10000);
+            }
+            catch { }
+        }
     }
 
     internal static ProcessStartInfo CreateStartInfo(LaunchTarget target, Uri proxy)
@@ -280,7 +314,7 @@ internal static class Program
     }
 }
 
-internal sealed class LauncherConfig { public string ProxyUrl { get; set; } public List<LaunchTarget> Targets { get; set; } public bool AutoStartEnabled { get; set; } public string ClashPath { get; set; } public bool TaskbarOverrideEnabled { get; set; } }
+internal sealed class LauncherConfig { public string ProxyUrl { get; set; } public List<LaunchTarget> Targets { get; set; } public bool AutoStartEnabled { get; set; } public string ClashPath { get; set; } public bool TaskbarOverrideEnabled { get; set; } public string Language { get; set; } public bool Configured { get; set; } }
 internal sealed class LaunchTarget { public string Name { get; set; } public string Kind { get; set; } public string Path { get; set; } public string Arguments { get; set; } public string WorkingDirectory { get; set; } public string ApprovedHash { get; set; } public override string ToString() { return Name; } }
 
 internal sealed class LaunchForm : Form
@@ -302,18 +336,18 @@ internal sealed class ConfigureForm : Form
     private readonly TextBox proxy; private readonly TextBox clash; private readonly CheckBox autoStart; private readonly CheckBox taskbar; private readonly ListBox list; private readonly LauncherConfig config; public LauncherConfig Config { get { return config; } }
     public ConfigureForm(LauncherConfig config, string baseDirectory)
     {
-        this.config = config; Text = "Configure Scoped Proxy Launcher"; StartPosition = FormStartPosition.CenterScreen; ClientSize = new System.Drawing.Size(560, 475); FormBorderStyle = FormBorderStyle.FixedDialog; MaximizeBox = false;
-        Controls.Add(new Label { Left = 15, Top = 15, Width = 520, Text = "Local HTTP proxy address (only 127.0.0.1 / localhost is accepted):" }); proxy = new TextBox { Left = 15, Top = 40, Width = 525, Text = config.ProxyUrl }; Controls.Add(proxy);
-        autoStart = new CheckBox { Left = 15, Top = 76, Width = 520, Text = "Start Clash, wait for proxy, then start configured applications at logon", Checked = config.AutoStartEnabled }; Controls.Add(autoStart);
+        this.config = config; Text = Program.Text(config, "Configure Scoped Proxy Launcher", "代理启动器设置"); StartPosition = FormStartPosition.CenterScreen; ClientSize = new System.Drawing.Size(560, 475); FormBorderStyle = FormBorderStyle.FixedDialog; MaximizeBox = false;
+        Controls.Add(new Label { Left = 15, Top = 15, Width = 520, Text = Program.Text(config, "Local HTTP proxy address (only 127.0.0.1 / localhost is accepted):", "本地 HTTP 代理地址（仅允许 127.0.0.1 / localhost）：") }); proxy = new TextBox { Left = 15, Top = 40, Width = 525, Text = config.ProxyUrl }; Controls.Add(proxy);
+        autoStart = new CheckBox { Left = 15, Top = 76, Width = 520, Text = Program.Text(config, "Start Clash, wait for proxy, then start configured applications at logon", "登录后启动 Clash，等待代理就绪，再启动已配置程序"), Checked = config.AutoStartEnabled }; Controls.Add(autoStart);
         Controls.Add(new Label { Left = 15, Top = 104, Width = 100, Text = "Clash Verge:" }); clash = new TextBox { Left = 115, Top = 101, Width = 330, Text = config.ClashPath ?? "" }; Controls.Add(clash);
-        var browseClash = new Button { Left = 455, Top = 100, Width = 85, Text = "Browse" }; browseClash.Click += delegate { using (var dialog = new OpenFileDialog { Filter = "Executable|*.exe" }) if (dialog.ShowDialog(this) == DialogResult.OK) clash.Text = dialog.FileName; }; Controls.Add(browseClash);
-        taskbar = new CheckBox { Left = 15, Top = 134, Width = 520, Text = "Replace matching pinned ChatGPT/Codex taskbar shortcut with proxy launch", Checked = config.TaskbarOverrideEnabled }; Controls.Add(taskbar);
-        Controls.Add(new Label { Left = 15, Top = 164, Width = 520, Text = "Applications and extensions launched with this scoped proxy:" });
+        var browseClash = new Button { Left = 455, Top = 100, Width = 85, Text = Program.Text(config, "Browse", "浏览") }; browseClash.Click += delegate { using (var dialog = new OpenFileDialog { Filter = "Executable|*.exe" }) if (dialog.ShowDialog(this) == DialogResult.OK) clash.Text = dialog.FileName; }; Controls.Add(browseClash);
+        taskbar = new CheckBox { Left = 15, Top = 134, Width = 520, Text = Program.Text(config, "Replace matching pinned ChatGPT/Codex taskbar shortcut with proxy launch", "用代理启动器覆盖已固定的 ChatGPT/Codex 任务栏入口"), Checked = config.TaskbarOverrideEnabled }; Controls.Add(taskbar);
+        Controls.Add(new Label { Left = 15, Top = 164, Width = 520, Text = Program.Text(config, "Applications and extensions launched with this scoped proxy:", "通过此代理启动的程序和扩展：") });
         list = new ListBox { Left = 15, Top = 187, Width = 525, Height = 185, DataSource = config.Targets }; Controls.Add(list);
-        var add = new Button { Left = 15, Top = 388, Width = 100, Text = "Add app" }; add.Click += delegate { using (var dialog = new TargetForm()) { if (dialog.ShowDialog(this) == DialogResult.OK) { dialog.Target.ApprovedHash = Program.ComputeFileHash(dialog.Target.Path); config.Targets.Add(dialog.Target); RefreshTargets(); } } }; Controls.Add(add);
-        var remove = new Button { Left = 125, Top = 388, Width = 100, Text = "Remove" }; remove.Click += delegate { var item = list.SelectedItem as LaunchTarget; if (item != null) { config.Targets.Remove(item); RefreshTargets(); } }; Controls.Add(remove);
-        var save = new Button { Left = 365, Top = 408, Width = 85, Text = "Save" }; save.Click += delegate { config.ProxyUrl = proxy.Text.Trim(); config.AutoStartEnabled = autoStart.Checked; config.ClashPath = clash.Text.Trim(); config.TaskbarOverrideEnabled = taskbar.Checked; try { Program.ValidateProxy(config.ProxyUrl); if (config.AutoStartEnabled && !File.Exists(config.ClashPath)) throw new InvalidOperationException("Select the Clash Verge executable before enabling automatic startup."); DialogResult = DialogResult.OK; Close(); } catch (Exception error) { MessageBox.Show(error.Message); } }; Controls.Add(save);
-        var cancel = new Button { Left = 455, Top = 408, Width = 85, Text = "Cancel" }; cancel.Click += delegate { Close(); }; Controls.Add(cancel);
+        var add = new Button { Left = 15, Top = 388, Width = 100, Text = Program.Text(config, "Add app", "添加程序") }; add.Click += delegate { using (var dialog = new TargetForm(string.Equals(config.Language, "zh-CN", StringComparison.OrdinalIgnoreCase))) { if (dialog.ShowDialog(this) == DialogResult.OK) { dialog.Target.ApprovedHash = Program.ComputeFileHash(dialog.Target.Path); config.Targets.Add(dialog.Target); RefreshTargets(); } } }; Controls.Add(add);
+        var remove = new Button { Left = 125, Top = 388, Width = 100, Text = Program.Text(config, "Remove", "移除") }; remove.Click += delegate { var item = list.SelectedItem as LaunchTarget; if (item != null) { config.Targets.Remove(item); RefreshTargets(); } }; Controls.Add(remove);
+        var save = new Button { Left = 365, Top = 408, Width = 85, Text = Program.Text(config, "Save", "保存") }; save.Click += delegate { config.ProxyUrl = proxy.Text.Trim(); config.AutoStartEnabled = autoStart.Checked; config.ClashPath = clash.Text.Trim(); config.TaskbarOverrideEnabled = taskbar.Checked; try { Program.ValidateProxy(config.ProxyUrl); if (config.AutoStartEnabled && !File.Exists(config.ClashPath)) throw new InvalidOperationException(Program.Text(config, "Select the Clash Verge executable before enabling automatic startup.", "开启开机启动前请先选择 Clash Verge 程序。")); DialogResult = DialogResult.OK; Close(); } catch (Exception error) { MessageBox.Show(error.Message); } }; Controls.Add(save);
+        var cancel = new Button { Left = 455, Top = 408, Width = 85, Text = Program.Text(config, "Cancel", "取消") }; cancel.Click += delegate { Close(); }; Controls.Add(cancel);
     }
     private void RefreshTargets() { list.DataSource = null; list.DataSource = config.Targets; }
 }
@@ -321,14 +355,14 @@ internal sealed class ConfigureForm : Form
 internal sealed class TargetForm : Form
 {
     private readonly TextBox name; private readonly TextBox path; private readonly TextBox args; public LaunchTarget Target { get; private set; }
-    public TargetForm()
+    public TargetForm(bool chinese)
     {
-        Text = "Add application"; StartPosition = FormStartPosition.CenterParent; ClientSize = new System.Drawing.Size(560, 205); FormBorderStyle = FormBorderStyle.FixedDialog; MaximizeBox = false;
-        Controls.Add(new Label { Left = 15, Top = 15, Width = 100, Text = "Display name:" }); name = new TextBox { Left = 115, Top = 12, Width = 425 }; Controls.Add(name);
-        Controls.Add(new Label { Left = 15, Top = 52, Width = 100, Text = "Program/script:" }); path = new TextBox { Left = 115, Top = 49, Width = 330 }; Controls.Add(path);
-        var browse = new Button { Left = 455, Top = 48, Width = 85, Text = "Browse" }; browse.Click += delegate { using (var dialog = new OpenFileDialog { Filter = "Programs and scripts|*.exe;*.cmd;*.bat;*.ps1|All files|*.*" }) { if (dialog.ShowDialog(this) == DialogResult.OK) { path.Text = dialog.FileName; if (string.IsNullOrWhiteSpace(name.Text)) name.Text = Path.GetFileNameWithoutExtension(dialog.FileName); } } }; Controls.Add(browse);
-        Controls.Add(new Label { Left = 15, Top = 89, Width = 100, Text = "Arguments:" }); args = new TextBox { Left = 115, Top = 86, Width = 425 }; Controls.Add(args);
-        var ok = new Button { Left = 365, Top = 140, Width = 85, Text = "Add" }; ok.Click += delegate { if (string.IsNullOrWhiteSpace(name.Text) || !File.Exists(path.Text)) { MessageBox.Show("Enter a name and select an existing file."); return; } Target = new LaunchTarget { Name = name.Text.Trim(), Kind = "file", Path = path.Text, Arguments = args.Text }; DialogResult = DialogResult.OK; Close(); }; Controls.Add(ok);
-        var cancel = new Button { Left = 455, Top = 140, Width = 85, Text = "Cancel" }; cancel.Click += delegate { Close(); }; Controls.Add(cancel);
+        Text = chinese ? "添加程序" : "Add application"; StartPosition = FormStartPosition.CenterParent; ClientSize = new System.Drawing.Size(560, 205); FormBorderStyle = FormBorderStyle.FixedDialog; MaximizeBox = false;
+        Controls.Add(new Label { Left = 15, Top = 15, Width = 100, Text = chinese ? "显示名称：" : "Display name:" }); name = new TextBox { Left = 115, Top = 12, Width = 425 }; Controls.Add(name);
+        Controls.Add(new Label { Left = 15, Top = 52, Width = 100, Text = chinese ? "程序/脚本：" : "Program/script:" }); path = new TextBox { Left = 115, Top = 49, Width = 330 }; Controls.Add(path);
+        var browse = new Button { Left = 455, Top = 48, Width = 85, Text = chinese ? "浏览" : "Browse" }; browse.Click += delegate { using (var dialog = new OpenFileDialog { Filter = "Programs and scripts|*.exe;*.cmd;*.bat;*.ps1|All files|*.*" }) { if (dialog.ShowDialog(this) == DialogResult.OK) { path.Text = dialog.FileName; if (string.IsNullOrWhiteSpace(name.Text)) name.Text = Path.GetFileNameWithoutExtension(dialog.FileName); } } }; Controls.Add(browse);
+        Controls.Add(new Label { Left = 15, Top = 89, Width = 100, Text = chinese ? "参数：" : "Arguments:" }); args = new TextBox { Left = 115, Top = 86, Width = 425 }; Controls.Add(args);
+        var ok = new Button { Left = 365, Top = 140, Width = 85, Text = chinese ? "添加" : "Add" }; ok.Click += delegate { if (string.IsNullOrWhiteSpace(name.Text) || !File.Exists(path.Text)) { MessageBox.Show(chinese ? "请输入名称并选择存在的文件。" : "Enter a name and select an existing file."); return; } Target = new LaunchTarget { Name = name.Text.Trim(), Kind = "file", Path = path.Text, Arguments = args.Text }; DialogResult = DialogResult.OK; Close(); }; Controls.Add(ok);
+        var cancel = new Button { Left = 455, Top = 140, Width = 85, Text = chinese ? "取消" : "Cancel" }; cancel.Click += delegate { Close(); }; Controls.Add(cancel);
     }
 }

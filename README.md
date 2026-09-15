@@ -17,6 +17,8 @@ Both installers require the official ChatGPT/Codex desktop client and an already
 
 Download `ScopedProxyLauncher-Setup.exe` from the corresponding GitHub Release. The installer asks for a program installation folder, then asks whether to create a desktop shortcut. It includes a notification-area tray helper with settings, ordered opt-in Clash-to-Codex autostart, reversible taskbar replacement, and manual file-update approval for configured extensions.
 
+The installer creates one main launcher in the Start menu, with an optional matching Desktop shortcut. It separately asks whether to add a **Restart Codex** entry; it is absent unless chosen. First opening the main launcher displays Settings automatically. Afterwards it launches the configured apps and Settings are available only from the notification-area icon.
+
 It is independent from the first-generation launcher. It does not include a proxy core, Clash/Mihomo configuration, subscription, node, account credential, or Codex session data.
 
 ## Security model

@@ -31,6 +31,7 @@ internal static class Program
     private static readonly Regex LanguageSettingPattern = new Regex("\\\"language\\\"\\s*:\\s*\\\"(?<value>[^\\\"]+)\\\"", RegexOptions.Compiled | RegexOptions.IgnoreCase);
     private static readonly Regex AutoStartSettingPattern = new Regex("\\\"autoStartEnabled\\\"\\s*:\\s*(?<value>true|false)", RegexOptions.Compiled | RegexOptions.IgnoreCase);
     private static readonly Regex TaskbarSettingPattern = new Regex("\\\"taskbarOverrideEnabled\\\"\\s*:\\s*(?<value>true|false)", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+    private static readonly Regex FirstRunSettingPattern = new Regex("\\\"firstRun\\\"\\s*:\\s*(?<value>true|false)", RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
     [DllImport("user32.dll")]
     private static extern bool ShowWindow(IntPtr handle, int command);
@@ -76,6 +77,20 @@ internal static class Program
             if (watchMode)
             {
                 return WatchCockpit(baseDirectory, settings);
+            }
+            if (settings.FirstRun)
+            {
+                using (var form = new BridgeSettingsForm(baseDirectory, settings))
+                {
+                    if (form.ShowDialog() == DialogResult.OK)
+                    {
+                        form.Settings.FirstRun = false;
+                        SaveLauncherSettings(baseDirectory, form.Settings);
+                        OrderedStartupTask.SetEnabled(form.Settings.AutoStartEnabled);
+                    }
+                }
+                Application.Run(new BridgeTrayHost(baseDirectory));
+                return 0;
             }
 
             var proxyUri = LoadAndValidateProxy(baseDirectory);
@@ -201,6 +216,8 @@ internal static class Program
         settings.AutoStartEnabled = autoStartMatch.Success && string.Equals(autoStartMatch.Groups["value"].Value, "true", StringComparison.OrdinalIgnoreCase);
         var taskbarMatch = TaskbarSettingPattern.Match(content);
         settings.TaskbarOverrideEnabled = taskbarMatch.Success && string.Equals(taskbarMatch.Groups["value"].Value, "true", StringComparison.OrdinalIgnoreCase);
+        var firstRunMatch = FirstRunSettingPattern.Match(content);
+        settings.FirstRun = firstRunMatch.Success && string.Equals(firstRunMatch.Groups["value"].Value, "true", StringComparison.OrdinalIgnoreCase);
         return settings;
     }
 
@@ -908,6 +925,7 @@ internal static class Program
         public string Language = "en-US";
         public bool AutoStartEnabled;
         public bool TaskbarOverrideEnabled;
+        public bool FirstRun;
     }
 
     public sealed class ApprovedDocument

@@ -12,7 +12,7 @@ using System.Windows.Forms;
 internal static class InstallerProgram
 {
     private const string ProductName = "Codex Proxy Bridge";
-    private const string ProductVersion = "1.2.7";
+    private const string ProductVersion = "1.2.8";
     private const string UninstallKeyPath = @"Software\Microsoft\Windows\CurrentVersion\Uninstall\CodexProxyBridge";
     private const string RunKeyPath = @"Software\Microsoft\Windows\CurrentVersion\Run";
     private const string RunValueName = "CodexProxyBridgeWatcher";
@@ -77,11 +77,14 @@ internal static class InstallerProgram
         var existingDesktopShortcuts = File.Exists(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory), "启动 Codex.exe")) || File.Exists(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory), "Start Codex.exe"));
         var createDesktopShortcuts = unattended ? existingDesktopShortcuts : MessageBox.Show(
             chinese
-                ? "是否在桌面创建“启动 Codex”和“重启 Codex”快捷程序？\n\n无论选择是或否，开始菜单的“Codex Proxy Bridge”文件夹中都会保留这两个程序。"
-                : "Create 'Start Codex' and 'Restart Codex' launchers on the Desktop?\n\nBoth entries are always installed in the 'Codex Proxy Bridge' Start menu folder.",
+                ? "是否在桌面创建主启动器？\n\n主启动器始终会放入开始菜单。"
+                : "Create a Desktop main launcher?\n\nThe main launcher is always placed in the Start menu.",
             chinese ? "桌面快捷方式" : "Desktop shortcuts",
             MessageBoxButtons.YesNo,
             MessageBoxIcon.Question) == DialogResult.Yes;
+        var restartEntry = unattended ? (File.Exists(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory), "重启 Codex.exe")) || File.Exists(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory), "Restart Codex.exe"))) : MessageBox.Show(
+            chinese ? "是否额外创建“重启 Codex”入口？\n\n选择“是”后，会在开始菜单中创建；如已选择桌面主启动器，也会同时放到桌面。" : "Also create a Restart Codex entry?\n\nYes adds it to Start and, if selected, to the Desktop.",
+            chinese ? "重启入口" : "Restart entry", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes;
 
         var existingTaskbarChoice = File.Exists(Path.Combine(installDirectory, "taskbar-grouping.enabled"));
         var replaceTaskbar = existingTaskbarChoice || (!unattended && MessageBox.Show(
@@ -114,12 +117,12 @@ internal static class InstallerProgram
             }
             var settingsPath = Path.Combine(installDirectory, "launcher-settings.json");
             if (!File.Exists(settingsPath))
-                File.WriteAllText(settingsPath, string.Format("{{\r\n  \"language\": \"{0}\",\r\n  \"restartCodexOnLaunch\": false,\r\n  \"autoStartEnabled\": true,\r\n  \"taskbarOverrideEnabled\": false\r\n}}\r\n", chinese ? "zh-CN" : "en-US"), new UTF8Encoding(false));
+                File.WriteAllText(settingsPath, string.Format("{{\r\n  \"language\": \"{0}\",\r\n  \"restartCodexOnLaunch\": false,\r\n  \"autoStartEnabled\": true,\r\n  \"taskbarOverrideEnabled\": false,\r\n  \"firstRun\": true\r\n}}\r\n", chinese ? "zh-CN" : "en-US"), new UTF8Encoding(false));
 
             var uninstallerPath = Path.Combine(installDirectory, "Uninstall.exe");
             File.Copy(Assembly.GetExecutingAssembly().Location, uninstallerPath, true);
-            CreateDesktopExecutables(launcherPath, createDesktopShortcuts, chinese);
-            CreateShortcuts(launcherPath, installDirectory, chinese);
+            CreateDesktopExecutables(launcherPath, createDesktopShortcuts, restartEntry, chinese);
+            CreateShortcuts(launcherPath, installDirectory, restartEntry, chinese);
             RegisterStartupWatcher(launcherPath);
             RegisterUninstaller(installDirectory, launcherPath, uninstallerPath);
             if (replaceTaskbar)
@@ -137,8 +140,8 @@ internal static class InstallerProgram
 
             if (!unattended) MessageBox.Show(
                 chinese
-                    ? "安装完成。“启动 Codex”和“重启 Codex”已放入开始菜单的“Codex Proxy Bridge”文件夹。桌面内容按你的选择创建。程序也已注册到 Windows“已安装的应用”。"
-                    : "Installation completed. 'Start Codex' and 'Restart Codex' are in the 'Codex Proxy Bridge' Start menu folder. Desktop launchers follow your selection. The app is also registered in Windows Installed apps.",
+                    ? "安装完成。主启动器已放入开始菜单；桌面与“重启 Codex”入口按你的选择创建。后续设置请从右下角隐藏图标打开。"
+                    : "Installation completed. The main launcher is in Start; Desktop and Restart Codex entries follow your choices. Later settings are available from the notification-area icon.",
                 chinese ? "安装完成" : "Setup completed",
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Information);
@@ -160,7 +163,7 @@ internal static class InstallerProgram
         }
     }
 
-    private static void CreateDesktopExecutables(string launcherPath, bool createShortcuts, bool chinese)
+    private static void CreateDesktopExecutables(string launcherPath, bool createShortcuts, bool restart, bool chinese)
     {
         var desktop = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
         DeleteDesktopExecutable("启动 Codex.exe");
@@ -170,7 +173,7 @@ internal static class InstallerProgram
         if (createShortcuts)
         {
             File.Copy(launcherPath, Path.Combine(desktop, chinese ? "启动 Codex.exe" : "Start Codex.exe"), true);
-            File.Copy(launcherPath, Path.Combine(desktop, chinese ? "重启 Codex.exe" : "Restart Codex.exe"), true);
+            if (restart) File.Copy(launcherPath, Path.Combine(desktop, chinese ? "重启 Codex.exe" : "Restart Codex.exe"), true);
         }
     }
 
@@ -209,19 +212,18 @@ internal static class InstallerProgram
         }
     }
 
-    private static void CreateShortcuts(string launcherPath, string installDirectory, bool chinese)
+    private static void CreateShortcuts(string launcherPath, string installDirectory, bool restart, bool chinese)
     {
         var programs = Environment.GetFolderPath(Environment.SpecialFolder.Programs);
         DeleteShortcut("Codex Proxy Bridge.lnk");
         DeleteShortcut("Restart Codex through Proxy.lnk");
         var group = Path.Combine(programs, ProductName);
         Directory.CreateDirectory(group);
+        foreach (var stale in Directory.GetFiles(group, "*.lnk")) File.Delete(stale);
         CreateShortcut(Path.Combine(group, chinese ? "启动 Codex.lnk" : "Start Codex.lnk"), launcherPath, string.Empty, installDirectory,
             chinese ? "通过本地代理打开 Codex" : "Open Codex through the local proxy");
-        CreateShortcut(Path.Combine(group, chinese ? "重启 Codex.lnk" : "Restart Codex.lnk"), launcherPath, "--restart-codex", installDirectory,
+        if (restart) CreateShortcut(Path.Combine(group, chinese ? "重启 Codex.lnk" : "Restart Codex.lnk"), launcherPath, "--restart-codex", installDirectory,
             chinese ? "关闭并通过本地代理重新启动 Codex" : "Close and restart Codex through the local proxy");
-        CreateShortcut(Path.Combine(group, chinese ? "代理桥托盘.lnk" : "Proxy Bridge Tray.lnk"), launcherPath, "--tray", installDirectory,
-            chinese ? "打开 Codex 代理桥托盘设置" : "Open Codex Proxy Bridge tray settings");
     }
 
     private static void CreateShortcut(string shortcutPath, string targetPath, string arguments, string workingDirectory, string description)

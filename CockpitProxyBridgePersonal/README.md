@@ -25,9 +25,10 @@ Run the installer. On a new installation it offers the Cockpit integration and t
 
 After installation, use the **Codex Proxy Bridge** Start-menu group:
 
-- **Start Codex**: starts or focuses Codex through the proxy.
-- **Restart Codex**: restarts Codex through the proxy.
-- **Proxy Bridge Tray**: keeps the notification-area controls available.
+- **Start Codex**: the single main launcher, which starts or focuses Codex through the proxy and keeps the tray helper available.
+- **Restart Codex**: created only when selected during installation; it restarts Codex through the proxy.
+
+The installer separately offers a Desktop copy of the main launcher. On first opening, settings appear automatically. Later, open settings from the notification-area icon; there is no separate settings shortcut.
 
 Do not put `CodexCockpitHook.exe` in Cockpit's ordinary Codex app-path field. The setup configures Cockpit's specified-application hook instead. After enabling or updating that hook, exit and reopen Cockpit so it reloads its settings.
 

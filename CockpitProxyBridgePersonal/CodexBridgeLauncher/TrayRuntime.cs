@@ -16,13 +16,14 @@ internal sealed class BridgeTrayHost : ApplicationContext
         bool created;
         mutex = new System.Threading.Mutex(true, @"Local\CodexProxyBridgeTray", out created);
         if (!created) { ExitThread(); return; }
+        bool chinese = string.Equals(Program.LoadLauncherSettings(baseDirectory).Language, "zh-CN", StringComparison.OrdinalIgnoreCase);
         var menu = new ContextMenuStrip();
-        menu.Items.Add("打开设置", null, delegate { OpenSettings(); });
-        menu.Items.Add("启动 / 重启 Codex（经代理）", null, delegate { StartBridge("--restart-codex"); });
-        menu.Items.Add("检测组件更新并批准", null, delegate { Program.CheckApprovedUpdates(baseDirectory, Program.LoadLauncherSettings(baseDirectory), true); });
+        menu.Items.Add(chinese ? "打开设置" : "Open settings", null, delegate { OpenSettings(); });
+        menu.Items.Add(chinese ? "启动 / 重启 Codex（经代理）" : "Start / restart Codex through proxy", null, delegate { StartBridge("--restart-codex"); });
+        menu.Items.Add(chinese ? "检测组件更新并批准" : "Check component updates / approve", null, delegate { Program.CheckApprovedUpdates(baseDirectory, Program.LoadLauncherSettings(baseDirectory), true); });
         menu.Items.Add(new ToolStripSeparator());
-        menu.Items.Add("退出托盘程序", null, delegate { ExitThread(); });
-        icon = new NotifyIcon { Icon = SystemIcons.Shield, Text = "Codex 代理桥", Visible = true, ContextMenuStrip = menu };
+        menu.Items.Add(chinese ? "退出托盘程序" : "Exit tray helper", null, delegate { ExitThread(); });
+        icon = new NotifyIcon { Icon = SystemIcons.Shield, Text = chinese ? "Codex 代理桥" : "Codex Proxy Bridge", Visible = true, ContextMenuStrip = menu };
         icon.MouseClick += delegate(object sender, MouseEventArgs args) { if (args.Button == MouseButtons.Left) OpenSettings(); };
     }
 
@@ -75,13 +76,14 @@ internal sealed class BridgeSettingsForm : Form
     internal BridgeSettingsForm(string baseDirectory, Program.LauncherSettings settings)
     {
         Settings = settings;
-        Text = "Codex 代理桥设置"; Width = 540; Height = 260; FormBorderStyle = FormBorderStyle.FixedDialog; MaximizeBox = false; MinimizeBox = false; StartPosition = FormStartPosition.CenterScreen;
-        Controls.Add(new Label { Left = 18, Top = 18, Width = 490, Height = 38, Text = "此个人版保留 Cockpit 直接 Hook、代理注入和账号切换后的 Codex 启动。" });
-        autoStart = new CheckBox { Left = 18, Top = 65, Width = 490, Text = "Windows 登录后自动执行现有的 Clash -> Cockpit -> Codex 代理启动链", Checked = OrderedStartupTask.IsEnabled() }; Controls.Add(autoStart);
-        taskbar = new CheckBox { Left = 18, Top = 98, Width = 490, Text = "用代理桥覆盖已固定的 ChatGPT / Codex 任务栏入口（可恢复）", Checked = File.Exists(Path.Combine(baseDirectory, "taskbar-grouping.enabled")) }; Controls.Add(taskbar);
-        Controls.Add(new Label { Left = 18, Top = 132, Width = 490, Height = 35, Text = "“检测组件更新”会对 Cockpit、余额悬浮窗等已批准程序重新请求授权。" });
-        var save = new Button { Left = 330, Top = 178, Width = 85, Text = "保存" }; save.Click += delegate { Settings.AutoStartEnabled = autoStart.Checked; Settings.TaskbarOverrideEnabled = taskbar.Checked; DialogResult = DialogResult.OK; Close(); }; Controls.Add(save);
-        var cancel = new Button { Left = 425, Top = 178, Width = 85, Text = "取消" }; cancel.Click += delegate { Close(); }; Controls.Add(cancel);
+        bool chinese = string.Equals(settings.Language, "zh-CN", StringComparison.OrdinalIgnoreCase);
+        Text = chinese ? "Codex 代理桥设置" : "Codex Proxy Bridge settings"; Width = 540; Height = 260; FormBorderStyle = FormBorderStyle.FixedDialog; MaximizeBox = false; MinimizeBox = false; StartPosition = FormStartPosition.CenterScreen;
+        Controls.Add(new Label { Left = 18, Top = 18, Width = 490, Height = 38, Text = chinese ? "此个人版保留 Cockpit 直接 Hook、代理注入和账号切换后的 Codex 启动。" : "This personal edition keeps the Cockpit direct hook, proxy injection, and post-switch Codex launch." });
+        autoStart = new CheckBox { Left = 18, Top = 65, Width = 490, Text = chinese ? "Windows 登录后自动执行现有的 Clash -> Cockpit -> Codex 代理启动链" : "Run the existing Clash -> Cockpit -> Codex proxy startup chain at Windows logon", Checked = OrderedStartupTask.IsEnabled() }; Controls.Add(autoStart);
+        taskbar = new CheckBox { Left = 18, Top = 98, Width = 490, Text = chinese ? "用代理桥覆盖已固定的 ChatGPT / Codex 任务栏入口（可恢复）" : "Replace the pinned ChatGPT / Codex taskbar entry with the bridge (reversible)", Checked = File.Exists(Path.Combine(baseDirectory, "taskbar-grouping.enabled")) }; Controls.Add(taskbar);
+        Controls.Add(new Label { Left = 18, Top = 132, Width = 490, Height = 35, Text = chinese ? "“检测组件更新”会对 Cockpit、余额悬浮窗等已批准程序重新请求授权。" : "Check component updates asks again before a changed Cockpit or approved helper can use the proxy." });
+        var save = new Button { Left = 330, Top = 178, Width = 85, Text = chinese ? "保存" : "Save" }; save.Click += delegate { Settings.AutoStartEnabled = autoStart.Checked; Settings.TaskbarOverrideEnabled = taskbar.Checked; DialogResult = DialogResult.OK; Close(); }; Controls.Add(save);
+        var cancel = new Button { Left = 425, Top = 178, Width = 85, Text = chinese ? "取消" : "Cancel" }; cancel.Click += delegate { Close(); }; Controls.Add(cancel);
     }
 }
 

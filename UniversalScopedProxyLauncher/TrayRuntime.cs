@@ -10,16 +10,22 @@ internal sealed class TrayHost : ApplicationContext
     private readonly string baseDirectory;
     private readonly NotifyIcon icon;
     private readonly Timer updateTimer;
+    private readonly System.Threading.Mutex mutex;
     internal TrayHost(string baseDirectory)
     {
         this.baseDirectory = baseDirectory;
+        bool created;
+        mutex = new System.Threading.Mutex(true, @"Local\ScopedProxyLauncherTray", out created);
+        if (!created) { ExitThread(); return; }
+        var config = Program.LoadConfig(baseDirectory);
+        bool chinese = string.Equals(config.Language, "zh-CN", StringComparison.OrdinalIgnoreCase);
         var menu = new ContextMenuStrip();
-        menu.Items.Add("Open settings", null, delegate { OpenSettings(); });
-        menu.Items.Add("Start configured apps", null, delegate { StartApps(); });
-        menu.Items.Add("Check app updates / approve", null, delegate { CheckUpdates(); });
+        menu.Items.Add(chinese ? "打开设置" : "Open settings", null, delegate { OpenSettings(); });
+        menu.Items.Add(chinese ? "启动已配置程序" : "Start configured apps", null, delegate { StartApps(); });
+        menu.Items.Add(chinese ? "检测程序更新并批准" : "Check app updates / approve", null, delegate { CheckUpdates(); });
         menu.Items.Add(new ToolStripSeparator());
-        menu.Items.Add("Exit tray helper", null, delegate { ExitThread(); });
-        icon = new NotifyIcon { Icon = System.Drawing.SystemIcons.Application, Text = "Scoped Proxy Launcher", ContextMenuStrip = menu, Visible = true };
+        menu.Items.Add(chinese ? "退出托盘程序" : "Exit tray helper", null, delegate { ExitThread(); });
+        icon = new NotifyIcon { Icon = System.Drawing.SystemIcons.Application, Text = chinese ? "代理启动器" : "Scoped Proxy Launcher", ContextMenuStrip = menu, Visible = true };
         icon.MouseClick += delegate(object sender, MouseEventArgs e) { if (e.Button == MouseButtons.Left) OpenSettings(); };
         updateTimer = new Timer { Interval = 10 * 60 * 1000, Enabled = true };
         updateTimer.Tick += delegate { CheckUpdatesSilent(); };
@@ -45,7 +51,7 @@ internal sealed class TrayHost : ApplicationContext
     }
     private void CheckUpdates() { try { Program.CheckForUpdatedTargets(Program.LoadConfig(baseDirectory), baseDirectory, true); } catch (Exception error) { MessageBox.Show(error.Message); } }
     private void CheckUpdatesSilent() { try { Program.CheckForUpdatedTargets(Program.LoadConfig(baseDirectory), baseDirectory, false); } catch { } }
-    protected override void ExitThreadCore() { updateTimer.Dispose(); icon.Visible = false; icon.Dispose(); base.ExitThreadCore(); }
+    protected override void ExitThreadCore() { updateTimer.Dispose(); icon.Visible = false; icon.Dispose(); try { mutex.ReleaseMutex(); } catch { } mutex.Dispose(); base.ExitThreadCore(); }
 }
 
 internal static class AutostartTask
